@@ -97,7 +97,7 @@ jobs:
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         run: |
           xvfb-run -a python main.py
-
+      
       # --- 新增的上传截图步骤 ---
       - name: 收集并上传调试截图
         uses: actions/upload-artifact@v4
