@@ -31,17 +31,34 @@ def get_current_ip():
     except:
         return "获取失败"
 
-def rotate_warp_ip():
-    print("正在切换 WARP IP...")
-    subprocess.run(['warp-cli', '--accept-tos', 'disconnect'], stdout=subprocess.DEVNULL)
-    time.sleep(2)
-    subprocess.run(['warp-cli', '--accept-tos', 'connect'], stdout=subprocess.DEVNULL)
-    time.sleep(8)
-    new_ip = get_current_ip()
-    print(f"WARP IP 切换完成。当前新 IP 为: {new_ip}")
+def rotate_warp_ip(old_ip):
+    """切换 WARP IP，并确保获取到与上一次不同的新 IP"""
+    max_retries = 3
+    for i in range(max_retries):
+        print(f"正在尝试切换 WARP IP (尝试 {i+1}/{max_retries})...")
+        subprocess.run(['warp-cli', '--accept-tos', 'disconnect'], stdout=subprocess.DEVNULL)
+        time.sleep(2)
+        subprocess.run(['warp-cli', '--accept-tos', 'connect'], stdout=subprocess.DEVNULL)
+        
+        # 给一定时间让网络恢复
+        time.sleep(8)
+        new_ip = get_current_ip()
+        
+        if new_ip == "获取失败":
+            print("⚠️ IP 获取失败，重试...")
+            continue
+            
+        if new_ip == old_ip:
+            print(f"⚠️ 新 IP ({new_ip}) 与旧 IP 相同，跳过此 IP 重新切换...")
+            continue
+            
+        print(f"✅ WARP IP 切换完成。当前新 IP 为: {new_ip}")
+        return new_ip
+        
+    print("❌ 多次尝试切换 IP 失败 (可能 IP 地址池分配重复)，将使用当前获取到的 IP 继续。")
+    return get_current_ip()
 
 def get_current_hours(time_text):
-    """从文本中解析小时数"""
     if not time_text:
         return -1
     try:
@@ -59,32 +76,29 @@ def main():
     co.set_argument('--disable-dev-shm-usage')
     
     page = ChromiumPage(co)
-    # 设置页面整体加载超时时间为 15 秒
     page.set.timeouts(page_load=15)
     
     loop_count = 0
     success_count = 0
     
-    print(f"初始 IP: {get_current_ip()}")
+    current_ip = get_current_ip()
+    print(f"初始 IP: {current_ip}")
     
     while loop_count < MAX_LOOPS:
         loop_count += 1
         print(f"\n--- 开始第 {loop_count}/{MAX_LOOPS} 次循环 ---")
         
         try:
-            # 尝试访问网页，即使抛出超时异常，我们也不直接退出
             page.get(URL)
         except Exception as e:
             print(f"[网络状态] 页面底层加载超时或异常，但可能已渲染完成: {e}")
             
-        # 核心容错：无论上面是否报错，只要能找到倒计时元素，就证明页面加载出来了
         countdown_ele = page.ele('#countdown', timeout=10)
         
         if not countdown_ele:
             print("❌ 核心元素未找到，判定为页面加载彻底失败。正在截图...")
             page.get_screenshot(path=f'timeout_error_{loop_count}.png')
-            print("尝试更换 IP...")
-            rotate_warp_ip()
+            current_ip = rotate_warp_ip(current_ip)
             continue
             
         current_time_text = countdown_ele.text
@@ -96,26 +110,25 @@ def main():
             break
             
         btn = page.ele('.vote-btn')
-        if not btn or btn.states.is_disabled:
+        
+        # 修复了之前的语法错误，改为判断 is_enabled
+        if not btn or not btn.states.is_enabled:
             print("⚠️ 按钮不可点击 (可能 IP 被限制或处于冷却)。准备更换 IP...")
-            rotate_warp_ip()
+            current_ip = rotate_warp_ip(current_ip)
             continue
             
         print("🟢 按钮状态正常，准备点击...")
         try:
-            # 点击前截图
             page.get_screenshot(path=f'before_click_{loop_count}.png')
             
-            # 使用 JavaScript 强制点击，绕过任何可能存在的不可见遮罩层
             btn.click(by_js=True)
             print("已发送点击指令，等待 8 秒让后端处理...")
             time.sleep(8)
             
-            # 点击后，刷新页面获取最新时间
             try:
                 page.get(URL)
             except Exception:
-                pass # 同样忽略刷新时的超时
+                pass
                 
             new_countdown_ele = page.ele('#countdown', timeout=10)
             if new_countdown_ele:
@@ -125,18 +138,19 @@ def main():
                 if current_time_text != new_time_text:
                     print(f"🎉 点击成功！时间由 {current_time_text} 变为 {new_time_text}")
                     success_count += 1
-                    rotate_warp_ip()
+                    # 成功后，带着当前的 IP 去获取一个新的 IP
+                    current_ip = rotate_warp_ip(current_ip)
                 else:
                     print("⚠️ 时间未发生变化，点击可能被服务端拒绝，更换 IP 准备重试。")
-                    rotate_warp_ip()
+                    current_ip = rotate_warp_ip(current_ip)
             else:
                 print("点击后无法重新获取页面数据，更换 IP 准备重试。")
-                rotate_warp_ip()
+                current_ip = rotate_warp_ip(current_ip)
                 
         except Exception as e:
             print(f"❌ 点击过程发生异常: {e}")
             page.get_screenshot(path=f'exception_error_{loop_count}.png')
-            rotate_warp_ip()
+            current_ip = rotate_warp_ip(current_ip)
 
     final_time = "获取失败"
     expiry_info = "获取失败"
