@@ -7,7 +7,7 @@ from DrissionPage import ChromiumPage, ChromiumOptions
 # --- 配置区 ---
 URL = "https://g4f.gg/jacob"
 TARGET_HOURS = 70
-MAX_LOOPS = 25
+MAX_LOOPS = 5
 
 TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN")
 TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
