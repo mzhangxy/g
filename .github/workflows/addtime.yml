@@ -1,13 +1,24 @@
-name: G4F Server Auto Renew
-
+name: G4F Server Auto Addtime
+ 
 on:
-  workflow_dispatch: 
+  schedule:
+    - cron: '23 18 */3 * *'
+  workflow_dispatch:
 
 jobs:
-  renew_server:
+  run-addtime:
     runs-on: ubuntu-latest
-
     steps:
+      - name: 📥 下载私库脚本
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/g4f-addtime-private
+          token: ${{ secrets.PAT_TOKEN }}
+          path: private
+
+      - name: 📂 移动脚本到工作目录
+        run: mv private/main.py main.py
+        
       - name: 检出代码库
         uses: actions/checkout@v4
 
