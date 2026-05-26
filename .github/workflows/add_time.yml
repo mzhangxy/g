@@ -2,7 +2,7 @@ name: G4F Server Auto Addtime
  
 on:
   schedule:
-    - cron: '23 18 */3 * *'
+    - cron: '23 18 */2 * *'
   workflow_dispatch:
 
 jobs:
