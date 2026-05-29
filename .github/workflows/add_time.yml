@@ -26,15 +26,15 @@ jobs:
 
       - name: 安装 Python 依赖及系统组件
         run: |
-          # 1. 升级基础构建工具，防止由于 GHA 镜像太旧导致编译失败
+          # 1. 升级基础构建工具
           python -m pip install --upgrade pip setuptools wheel
           
-          # 2. 显式安装 DrissionPage 及其所有可能漏掉的底层核心依赖
+          # 2. 安装 Python 依赖
           pip install DrissionPage requests DataRecorder DownloadKit FlowViewer lxml websocket-client psutil
           
-          # 3. 安装虚拟显示器
+          # 3. 安装虚拟显示器、Chrome 以及必要的中英文字体
           sudo apt-get update
-          sudo apt-get install -y xvfb
+          sudo apt-get install -y xvfb google-chrome-stable fonts-liberation fonts-noto
 
       - name: 安装并配置 Cloudflare WARP CLI
         run: |
